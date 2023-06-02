@@ -2,7 +2,7 @@
   "profiles": {
     "SQLServerToOracleMigration": {
       "commandName": "Project",
-      "commandLineArgs": "sqlhost=192.168.0.201 sqlcatalog=CORPDES_500 sqlusr=desenvolvimento sqlpwd=1234 orahost=192.168.0.156 oraport=1521 orasid=orcl19c orausr=corp orapwd=1234 \"AND TABLE_NAME NOT LIKE '%LOG%'\""
+      "commandLineArgs": "sqlhost=ServerName sqlcatalog=Database sqlusr=User sqlpwd=Password orahost=ServerName oraport=Port orasid=ServiceId orausr=User orapwd=Password \"AND TABLE_NAME NOT LIKE '%LOG%'\""
     }
   }
 }

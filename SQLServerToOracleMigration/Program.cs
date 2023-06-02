@@ -285,11 +285,23 @@ internal class Program
                             using OracleCommand check_sequence_statment = new($"SELECT COUNT(1) FROM USER_SEQUENCES WHERE SEQUENCE_NAME='SEQ_{table_name}'", oracle_connection);
                             if (Convert.ToInt32(check_sequence_statment.ExecuteScalar()) == 0)
                             {
-                                sequence_statment.AppendLine($"CREATE SEQUENCE SEQ_{table_name}");
-                                using OracleCommand new_sequence_statment = new(sequence_statment.ToString(), oracle_connection);
-                                new_sequence_statment.ExecuteNonQuery();
-                                complement.Append($" DEFAULT SEQ_{table_name}.NEXTVAL");
+                                try
+                                {
+                                    sequence_statment.AppendLine($"CREATE SEQUENCE SEQ_{table_name}");
+                                    using OracleCommand new_sequence_statment = new(sequence_statment.ToString(), oracle_connection);
+                                    new_sequence_statment.ExecuteNonQuery();
+                                }
+                                catch (Exception ex)
+                                {
+                                    ShowMessage($"    An error occurred: {ex.Message}");
+                                    if (ex.StackTrace != null)
+                                    {
+                                        string[] stackTrace = ex.StackTrace.Split(new string[] { System.Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+                                        for (int i = 0; i < stackTrace.Length; i++) { ShowMessage($"           {(i == 0 ? "StackTrace: " : "            ")}{stackTrace[i]}"); }
+                                    }
+                                }
                             }
+                            complement.Append($" DEFAULT SEQ_{table_name}.NEXTVAL");
                         }
                         //if (c.IsPrimarykey && qtdPK == 1) { complement.Append(" PRIMARY KEY"); }
                         if (c.DefaultValue != null) { complement.Append($" DEFAULT {c.DefaultValue}"); }
@@ -460,20 +472,24 @@ internal class Program
         }
         catch (Exception ex)
         {
-            ShowMessage($"An error occurred: {ex.Message}");
-            ShowMessage($"       StackTrace: {ex.StackTrace}");
+            ShowMessage($"    An error occurred: {ex.Message}");
+            if (ex.StackTrace != null)
+            {
+                string[] stackTrace = ex.StackTrace.Split(new string[] { System.Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+                for (int i = 0; i < stackTrace.Length; i++) { ShowMessage($"           {(i == 0 ? "StackTrace: " : "            ")}{stackTrace[i]}"); }
+            }
         }
         finally
         {
             if (sql_server_connection.State == ConnectionState.Open) { sql_server_connection.Close(); }
-            if (log_processamento.Length > 0) { SaveFileUTF8(log_processamento, $"{Path.Combine(Environment.CurrentDirectory, "Log")}", $"log_processamento{DateTime.Now:yyyyMMddHHmmss}.log"); }
             if (bcp_scripts.Length > 0) { SaveFileUTF8(bcp_scripts, $"{Path.Combine(Environment.CurrentDirectory, "Scripts")}", $"_1_bcp.bat"); }
             if (sqlldr_scripts.Length > 0) { SaveFileUTF8(sqlldr_scripts, $"{Path.Combine(Environment.CurrentDirectory, "Scripts")}", $"_2_sqlloader.bat"); }
             if (update_seq_scripts.Length > 0) { SaveFileUTF8(update_seq_scripts, $"{Path.Combine(Environment.CurrentDirectory, "Scripts")}", $"_3_run_after_sqlloader.sql"); }
             if (create_constraints.Length > 0) { SaveFileUTF8(create_constraints, $"{Path.Combine(Environment.CurrentDirectory, "Scripts")}", $"_4_create_constraints.sql"); }
             DateTime finishProcessing = DateTime.Now;
-
-            ShowMessage($"    Processing started at {startProcessing:dd/MM/yyyy HH:mm:ss} and ended at {finishProcessing:dd/MM/yyyy HH:mm:ss}, totaling {((int)finishProcessing.Subtract(startProcessing).TotalMinutes == 0 ? (int)finishProcessing.Subtract(startProcessing).TotalSeconds : (int)finishProcessing.Subtract(startProcessing).TotalMinutes)} {((int)finishProcessing.Subtract(startProcessing).TotalMinutes == 0 ? " seconds" : " minutes")} of execution ({(int)finishProcessing.Subtract(startProcessing).TotalHours}:{finishProcessing.Subtract(startProcessing).Minutes}:{finishProcessing.Subtract(startProcessing).Seconds}).");
+            ShowMessage("");
+            ShowMessage($"Processing started at {startProcessing:dd/MM/yyyy HH:mm:ss} and ended at {finishProcessing:dd/MM/yyyy HH:mm:ss}, totaling {((int)finishProcessing.Subtract(startProcessing).TotalMinutes == 0 ? (int)finishProcessing.Subtract(startProcessing).TotalSeconds : (int)finishProcessing.Subtract(startProcessing).TotalMinutes)} {((int)finishProcessing.Subtract(startProcessing).TotalMinutes == 0 ? " seconds" : " minutes")} of execution ({(int)finishProcessing.Subtract(startProcessing).TotalHours}:{finishProcessing.Subtract(startProcessing).Minutes}:{finishProcessing.Subtract(startProcessing).Seconds}).");
+            if (log_processamento.Length > 0) { SaveFileUTF8(log_processamento, $"{Path.Combine(Environment.CurrentDirectory, "Log")}", $"log_processamento{DateTime.Now:yyyyMMddHHmmss}.log"); }
         }
 
         OracleDbType GetDataTypeOracle(Type type)
@@ -545,9 +561,15 @@ internal class Program
             }
             catch (Exception ex)
             {
-                ShowMessage($"    Error {ex.Message} -> Operation {insert_query}");
+                ShowMessage($"    Error Operation {insert_query}...");
                 foreach (OracleParameter p in oraParams)
                 { ShowMessage($"    Table:: {table_name} - Parameter:: {p.Value} - {p.DbType} - {p.OracleDbType}"); }
+                ShowMessage($"    An error occurred: {ex.Message}");
+                if (ex.StackTrace != null)
+                {
+                    string[] stackTrace = ex.StackTrace.Split(new string[] { System.Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+                    for (int i = 0; i < stackTrace.Length; i++) { ShowMessage($"           {(i == 0 ? "StackTrace: " : "            ")}{stackTrace[i]}"); }
+                }
                 tem_erro = true;
             }
 
@@ -764,7 +786,14 @@ internal class Program
                         after_all_data_load.AppendLine(updateStatment + ";");
                         after_all_data_load.AppendLine("");
                     }
-                    catch (Exception ex) { ShowMessage(ex.Message); log_processamento.AppendLine(ex.StackTrace); }
+                    catch (Exception ex) {
+                        ShowMessage($"    An error occurred: {ex.Message}");
+                        if (ex.StackTrace != null)
+                        {
+                            string[] stackTrace = ex.StackTrace.Split(new string[] { System.Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+                            for (int i = 0; i < stackTrace.Length; i++) { ShowMessage($"           {(i == 0 ? "StackTrace: " : "            ")}{stackTrace[i]}"); }
+                        }
+                    }
                 }
             }
         }
@@ -799,7 +828,14 @@ internal class Program
                 if (error.Length > 0) { ShowMessage($"    Errors: {error}"); tem_erro = true; }
             }
             catch (Exception ex)
-            { ShowMessage($"    An error occurred executing {command} {arguments}: {ex.Message}"); log_processamento.AppendLine(ex.StackTrace); }
+            {
+                ShowMessage($"    An error occurred: {ex.Message}");
+                if (ex.StackTrace != null)
+                {
+                    string[] stackTrace = ex.StackTrace.Split(new string[] { System.Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+                    for (int i = 0; i < stackTrace.Length; i++) { ShowMessage($"           {(i == 0 ? "StackTrace: " : "            ")}{stackTrace[i]}"); }
+                }
+            }
             finally
             { process.Close(); }
         }
@@ -836,7 +872,15 @@ internal class Program
                         ora_server_constraint_command.ExecuteNonQuery();
                     }
                     catch (Exception ex)
-                    { ShowMessage($"    Error creating Constraint {ConstraintName}: {ex.Message}"); log_processamento.AppendLine(ex.StackTrace); }
+                    { 
+                        ShowMessage($"    Error creating Constraint {ConstraintName}...");
+                        ShowMessage($"    An error occurred: {ex.Message}");
+                        if (ex.StackTrace != null)
+                        {
+                            string[] stackTrace = ex.StackTrace.Split(new string[] { System.Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+                            for (int i = 0; i < stackTrace.Length; i++) { ShowMessage($"           {(i == 0 ? "StackTrace: " : "            ")}{stackTrace[i]}"); }
+                        }
+                    }
                     create_constraints.AppendLine(sbFK.ToString() + ";");
                 }
             }
