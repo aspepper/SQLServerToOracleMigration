@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "SQLServerToOracleMigration": {
+      "commandName": "Project",
+      "commandLineArgs": "sqlhost=ServerName sqlcatalog=Database sqlusr=User sqlpwd=Password orahost=ServerName oraport=Port orasid=ServiceId orausr=User orapwd=Password"
+    }
+  }
+}
