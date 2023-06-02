@@ -25,7 +25,7 @@ internal class Program
         string sql_server_connection_string = string.Empty;
         string oracle_connection_string = string.Empty;
         string quote = "```";
-        string bcp_params = "\"{0}\" QUERYOUT BCP\\{1}.dat -o Log\\{1}.log -S{2} -d {3} -Udesenvolvimento -P{4} -C65001 -t \"" + quote + "," + quote + "\" -r \"" + quote + "\\n" + quote + "\" -w";
+        string bcp_params = "\"{0}\" QUERYOUT BCP\\{1}.dat -o Log\\{1}.log -S{2} -d {3} -U{4} -P{5} -C65001 -t \"" + quote + "," + quote + "\" -r \"" + quote + "\\n" + quote + "\" -w";
         Encoding utf8pure = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
         bool tem_erro = false;
         StringBuilder bcp_scripts = new();
@@ -58,7 +58,8 @@ internal class Program
             orausr = Oracle user, e.g., orausr=scott or orausr scott
             orapwd = Oracle password, e.g., orapwd=tigger or orapwd tigger
             recriar = true if you want to recreate the tables / false if you don't want to, e.g., recriar=true or recriar true
-            -m = maxRowsToInsert, e.g., -m 100 (maximum of 100 records)        
+            append = true, whether you insert without truncating / false, whether you want to skip the table, e.g., append=true or append true
+            -m = maxRowsToInsert, e.g., -m 100 (maximum of 100 records) 
 
         pt-BR
         Params:
@@ -72,8 +73,10 @@ internal class Program
             orausr = usuário Oracle, ex: orausr=scott ou orausr scott
             orapwd = Senha Oracle, ex: orapwd=tigger ou orapwd tigger
             recriar = true se deseja recirar as tabelas / falso caso não deseje, ex: recriar=true ou recriar true
+            append = true se inserir sem truncar / falso caso queira pular a tabela, ex: append=true ou append true
             -m = maxRowsToInsert ex: -m 100 (no máximo 100 regitros)
         */
+        StringBuilder allParams = new();
         int paramMandatory = 0;
         for (int i = 0; i < args.Length; i++)
         {
@@ -87,15 +90,15 @@ internal class Program
                         if (param.Length == 0) { if (i < args.Length) { i++; param = args[i]; } }
                         if (param.Length == 0) { break; }
                         _ = int.TryParse(param, out maxRowsToInsert);
+                        allParams.Append($" -m={param},");
                         break;
                 }
             }
             else
             {
                 string argpure = arg.ToString()[..3].ToLower();
-                if (argpure == "top") { top = arg; }
-                if (argpure == "and") { andTable = arg; }
-                if (argpure == "tru") { insertMoreRows = true; }
+                if (argpure == "top") { top = arg; allParams.Append($" \"top..\"=\"{top}\","); }
+                if (argpure == "and") { andTable = arg; allParams.Append($" \"and...\"=\"{andTable}\","); }
                 string argtype2 = arg.ToString()[..6].ToLower();
                 if (argtype2 == "sqlhos") { var param = arg.Remove(0, 7); if (param.Contains('=')) { param = param.Remove(0, 1).Trim(); } else { i++; param = args[i]; } sql_host = param; paramMandatory++; }
                 if (argtype2 == "sqlcat") { var param = arg.Remove(0, 10); if (param.Contains('=')) { param = param.Remove(0, 1).Trim(); } else { i++; param = args[i]; } sql_catalog = param; paramMandatory++; }
@@ -106,15 +109,18 @@ internal class Program
                 if (argtype2 == "orasid") { var param = arg.Remove(0, 6); if (param.Contains('=')) { param = param.Remove(0, 1).Trim(); } else { i++; param = args[i]; } ora_sid = param; paramMandatory++; }
                 if (argtype2 == "orausr") { var param = arg.Remove(0, 6); if (param.Contains('=')) { param = param.Remove(0, 1).Trim(); } else { i++; param = args[i]; } ora_userId = param; paramMandatory++; }
                 if (argtype2 == "orapwd") { var param = arg.Remove(0, 6); if (param.Contains('=')) { param = param.Remove(0, 1).Trim(); } else { i++; param = args[i]; } ora_password = param; paramMandatory++; }
-                if (argtype2 == "recria") { var param = arg.Remove(0, 7); if (param.Contains('=')) { param = param.Remove(0, 1).Trim(); } else { i++; param = args[i]; } recriar = param == "true"; }
+                if (argtype2 == "recria") { var param = arg.Remove(0, 7); if (param.Contains('=')) { param = param.Remove(0, 1).Trim(); } else { i++; param = args[i]; } recriar = param == "true"; allParams.Append($" recriar={param},"); }
+                if (argtype2 == "append") { var param = arg.Remove(0, 6); if (param.Contains('=')) { param = param.Remove(0, 1).Trim(); } else { i++; param = args[i]; } insertMoreRows = param == "true"; allParams.Append($" append={param},"); }
             }
         }
-
         if (paramMandatory < 9)
         {
             Console.WriteLine("Please provide the 9 mandatory parameters:\n\tsqlhost = SQL Server name or IP address, e.g., sqlhost=192.168.0.1 or sqlhost=myserver\n\tsqlcatalog = SQL Server database, e.g., sqlcatalog=mydatabase or sqlcatalog mydatabase\n\tsqlusr = SQL Server user, e.g., sqlusr=user or sqlusr user\n\tsqlpwd = SQL Server password, e.g., sqlpwd=password or sqlpwd password\n\torahost = Oracle server name or IP address, e.g., orahost=192.168.0.2 or orahost 192.168.0.2\n\toraport = Oracle port, e.g., oraport=1521 or oraport 1521\n\torasid = Oracle Service ID, e.g., orasid=oraserviceId or orasid oraserviceId\n\torausr = Oracle user, e.g., orausr=scott or orausr scott\n\torapwd = Oracle password, e.g., orapwd=tigger or orapwd tigger\n\nAnd the optional ones are:\n\trecriar = true if you want to recreate the tables / false if you don't want to, e.g., recriar=true or recriar true (Default is false)\n\t-m = maxRowsToInsert, e.g., -m 100 (maximum of 100 records).");
             Environment.Exit(0);
         }
+        if (allParams.Length > 0) { allParams.Length--; }
+        Console.WriteLine($"Running migration proccess using follow parameters {allParams}");
+        Console.WriteLine("");
 
         sql_server_connection_string = $"Data Source={sql_host};Initial Catalog={sql_catalog};User ID={sql_userId};Password={sql_password};MultipleActiveResultSets=True";
         oracle_connection_string = $"Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=tcp)(HOST={ora_host})(PORT={ora_port}))(CONNECT_DATA=(SERVICE_NAME={ora_sid})));User Id={ora_userId};Password={ora_password};Persist Security Info=True;enlist=false;pooling=false;";
@@ -575,7 +581,7 @@ internal class Program
             }
             statmentToExport.Length--;
             statmentToExport.Append($" FROM {table_schema}.{table_name}");
-            string bcpArguments = string.Format(bcp_params, statmentToExport.ToString(), table_name, sql_host, sql_userId, sql_password);
+            string bcpArguments = string.Format(bcp_params, statmentToExport.ToString(), table_name, sql_host, sql_catalog, sql_userId, sql_password);
             if (File.Exists(Path.Combine(Environment.CurrentDirectory, $"BCP\\{table_name}.dat"))) { File.Delete(Path.Combine(Environment.CurrentDirectory, $"BCP\\{table_name}.dat")); }
             ShowMessage($"    Running BCP to create import BCP\\{table_name}.dat file...");
             bcp_scripts.AppendLine(string.Concat(bcpCommand, " ", bcpArguments));
@@ -645,7 +651,7 @@ internal class Program
             sql.Length--;
             sql.Append($" FROM {table_schema}.{table_name}");
 
-            string bcpArguments = string.Format(bcp_params, sql.ToString(), table_name);
+            string bcpArguments = string.Format(bcp_params, sql.ToString(), table_name, sql_host, sql_catalog, sql_userId, sql_password);
             if (File.Exists(Path.Combine(Environment.CurrentDirectory, $"BCP\\{table_name}.dat")))
             { File.Delete(Path.Combine(Environment.CurrentDirectory, $"BCP\\{table_name}.dat")); }
             ShowMessage($"    Running BCP to create import BCP\\{table_name}.dat file...");
