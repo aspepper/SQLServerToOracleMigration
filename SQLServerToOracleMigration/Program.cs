@@ -10,6 +10,9 @@ internal class Program
 {
     private static void Main(string[] args)
     {
+        int currentErrorCount = 0;
+        int maxErrosRepetition = 10;
+        int varcharLimit = 2000;
         DateTime startProcessing = DateTime.Now;
 
         string sql_host = string.Empty;
@@ -48,7 +51,7 @@ internal class Program
         /* 
         en-US
         Params:
-            sqlhost = SQL Server name or IP address, e.g., sqlhost=192.168.0.1 or sqlhost=myserver
+            sqlhost = SQL Server name or IP address, e.g., sqlhost=sql or sqlhost=myserver
             sqlcatalog = SQL Server database, e.g., sqlcatalog=mydatabase or sqlcatalog mydatabase
             sqlusr = SQL Server user, e.g., sqlusr=user or sqlusr user
             sqlpwd = SQL Server password, e.g., sqlpwd=password or sqlpwd password
@@ -130,7 +133,6 @@ internal class Program
 
         try
         {
-
             using SqlCommand sql_server_command = new($"SELECT {top} TABLE_SCHEMA, TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' {andTable} ORDER BY TABLE_NAME", sql_server_connection);
             using SqlDataReader sql_server_reader = sql_server_command.ExecuteReader();
 
@@ -155,13 +157,13 @@ internal class Program
 
                     ShowMessage($"Processing table {table_name}...");
 
-                    using (OracleCommand oracle_command = new($"SELECT COUNT(*) FROM user_tables WHERE table_name = '{table_name}'", oracle_connection))
+                    using (OracleCommand oracle_command = new($"SELECT COUNT(*) FROM user_tables WHERE UPPER(table_name) = '{table_name.ToUpper()}'", oracle_connection))
                     {
                         table_exists = Convert.ToInt32(oracle_command.ExecuteScalar()) > 0;
 
                         if (table_exists && recriar)
                         {
-                            using (OracleCommand oracle_disable_constraints_command = new($"SELECT constraint_name FROM all_constraints WHERE table_name = '{table_name}' AND constraint_type = 'R'", oracle_connection))
+                            using (OracleCommand oracle_disable_constraints_command = new($"SELECT constraint_name FROM all_constraints WHERE UPPER(table_name)='{table_name.ToUpper()}' AND constraint_type = 'R'", oracle_connection))
                             {
                                 using OracleDataReader oracle_disable_constraints_reader = oracle_disable_constraints_command.ExecuteReader();
                                 while (oracle_disable_constraints_reader.Read())
@@ -202,7 +204,7 @@ internal class Program
                         "FROM INFORMATION_SCHEMA.COLUMNS COLS JOIN SYS.columns C ON C.object_id = object_id(COLS.TABLE_NAME) AND C.name = COLUMN_NAME " +
                         "LEFT JOIN (SELECT table_name AS TABELA, column_name AS COLUNA, 1 AS PRIMARYKEY FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE " +
                         "WHERE OBJECTPROPERTY(OBJECT_ID(constraint_name), 'IsPrimaryKey') = 1) PK ON PK.TABELA=COLS.TABLE_NAME AND PK.COLUNA=COLS.COLUMN_NAME " +
-                        $"WHERE TABLE_NAME = '{table_name}' ORDER BY ORDINAL_POSITION ";
+                        $"WHERE UPPER(TABLE_NAME)='{table_name.ToUpper()}' ORDER BY ORDINAL_POSITION ";
 
                     using SqlCommand sql_server_table_schema_command = new(sqlTableSchema, sql_server_connection);
                     using SqlDataReader table_schema_reader = sql_server_table_schema_command.ExecuteReader();
@@ -210,7 +212,7 @@ internal class Program
                     StringBuilder sequence_statment = new();
                     List<OracleParameter> parameters = new();
 
-                    create_table_query.Append($"CREATE TABLE {table_name} (");
+                    create_table_query.Append($"CREATE TABLE {table_name.ToUpper()} (");
                     bool hasPrimaryKey = false;
                     bool hasIdentity = false;
                     while (table_schema_reader.Read())
@@ -259,8 +261,10 @@ internal class Program
                         { if (cols[0].DataSize > 0 && cols[0].DataSize <= 10) { cols[0].IsPrimarykey = true; } }
                     }
 
-                    Column? primaryKey = cols.Where(c => c.IsPrimarykey || c.IsIdentity).FirstOrDefault() ?? throw new Exception($"A tabela {table_name} não possui uma coluna Primary Key, resolva este problema e tente novamente.");
-                    if (cols.Where(c => c.IsPrimarykey).FirstOrDefault() == null) { cols[cols.FindIndex(c => c.Position == primaryKey.Position)].IsPrimarykey = true; }
+                    //Column? primaryKey = cols.Where(c => c.IsPrimarykey || c.IsIdentity).FirstOrDefault() ?? throw new Exception($"A tabela {table_name} não possui uma coluna Primary Key, resolva este problema e tente novamente.");
+                    Column? primaryKey = cols.Where(c => c.IsPrimarykey || c.IsIdentity).FirstOrDefault();
+                    if (primaryKey != null)
+                    { if (cols.Where(c => c.IsPrimarykey).FirstOrDefault() == null) { cols[cols.FindIndex(c => c.Position == primaryKey.Position)].IsPrimarykey = true; } }
                     int qtdPK = cols.Where(c => c.IsPrimarykey).Count();
 
                     foreach (Column c in cols)
@@ -282,7 +286,7 @@ internal class Program
                         //if (c.IsIdentity) { complement.Append(" GENERATED BY DEFAULT ON NULL AS IDENTITY"); }
                         if (c.IsIdentity)
                         {
-                            using OracleCommand check_sequence_statment = new($"SELECT COUNT(1) FROM USER_SEQUENCES WHERE SEQUENCE_NAME='SEQ_{table_name}'", oracle_connection);
+                            using OracleCommand check_sequence_statment = new($"SELECT COUNT(1) FROM USER_SEQUENCES WHERE UPPER(SEQUENCE_NAME)='SEQ_{table_name.ToUpper()}'", oracle_connection);
                             if (Convert.ToInt32(check_sequence_statment.ExecuteScalar()) == 0)
                             {
                                 try
@@ -341,7 +345,7 @@ internal class Program
                                 break;
                             case "varchar":
                             case "nvarchar":
-                                if (c.DataSize > 0 && c.DataSize <= 2000)
+                                if (c.DataSize > 0 && c.DataSize <= varcharLimit)
                                 { create_table_query.Append($"\n\t{c.ColumnName} nvarchar2({c.DataSize}){complement},"); }
                                 else
                                 { create_table_query.Append($"\n\t{c.ColumnName} nclob{complement},"); }
@@ -439,13 +443,13 @@ internal class Program
 
                         if (cols.Where(c => c.IsIdentity).Any())
                         {
-                            string query = $"SELECT COUNT(1) FROM USER_SEQUENCES WHERE SEQUENCE_NAME='SEQ_{table_name}'";
+                            string query = $"SELECT COUNT(1) FROM USER_SEQUENCES WHERE UPPER(SEQUENCE_NAME)='SEQ_{table_name.ToUpper()}'";
                             OracleCommand query_check_exists = new(query, oracle_connection);
                             if (Convert.ToInt32(query_check_exists.ExecuteScalar()) == 0)
                             {
                                 update_seq_scripts.AppendLine(query);
                                 Column pk = cols.Where(c => c.IsIdentity).First();
-                                query = $"SELECT NVL(MAX({pk.ColumnName}),0) FROM {table_name}";
+                                query = $"SELECT NVL(MAX({pk.ColumnName}),0) FROM {table_name.ToUpper()}";
                                 update_seq_scripts.AppendLine(query);
                                 OracleCommand get_current_val = new(query, oracle_connection);
                                 int currentVal = Convert.ToInt32(get_current_val.ExecuteScalar());
@@ -486,6 +490,8 @@ internal class Program
             if (sqlldr_scripts.Length > 0) { SaveFileUTF8(sqlldr_scripts, $"{Path.Combine(Environment.CurrentDirectory, "Scripts")}", $"_2_sqlloader.bat"); }
             if (update_seq_scripts.Length > 0) { SaveFileUTF8(update_seq_scripts, $"{Path.Combine(Environment.CurrentDirectory, "Scripts")}", $"_3_run_after_sqlloader.sql"); }
             if (create_constraints.Length > 0) { SaveFileUTF8(create_constraints, $"{Path.Combine(Environment.CurrentDirectory, "Scripts")}", $"_4_create_constraints.sql"); }
+            if (after_all_data_load.Length > 0) { SaveFileUTF8(after_all_data_load, $"{Path.Combine(Environment.CurrentDirectory, "Log")}", $"after_data_load.log"); }
+
             DateTime finishProcessing = DateTime.Now;
             ShowMessage("");
             ShowMessage($"Processing started at {startProcessing:dd/MM/yyyy HH:mm:ss} and ended at {finishProcessing:dd/MM/yyyy HH:mm:ss}, totaling {((int)finishProcessing.Subtract(startProcessing).TotalMinutes == 0 ? (int)finishProcessing.Subtract(startProcessing).TotalSeconds : (int)finishProcessing.Subtract(startProcessing).TotalMinutes)} {((int)finishProcessing.Subtract(startProcessing).TotalMinutes == 0 ? " seconds" : " minutes")} of execution ({(int)finishProcessing.Subtract(startProcessing).TotalHours}:{finishProcessing.Subtract(startProcessing).Minutes}:{finishProcessing.Subtract(startProcessing).Seconds}).");
@@ -511,12 +517,12 @@ internal class Program
 
         void ExecuteInclusionOfRecords(string table_name, SqlDataReader table_reader, OracleConnection oracle_connection, Column primaryKey, List<Column> cols)
         {
-            StringBuilder insert_query = new($"INSERT INTO {table_name} (");
+            StringBuilder insert_query = new($"INSERT INTO {table_name.ToUpper()} (");
             List<OracleParameter> oraParams = new();
             try
             {
                 var primaryKeyValue = table_reader.GetValue(primaryKey.Position - 1);
-                string statmentFindRecord = $"SELECT COUNT(*) FROM {table_name} WHERE {primaryKey.ColumnName} = :PK";
+                string statmentFindRecord = $"SELECT COUNT(*) FROM {table_name.ToUpper()} WHERE {primaryKey.ColumnName} = :PK";
                 OracleParameter pKey = new()
                 {
                     Value = primaryKeyValue,
@@ -577,14 +583,14 @@ internal class Program
 
         int AccountTableRecordsOracle(OracleConnection ora_connection, string table_name)
         {
-            string statmentFindRecord = $"SELECT COUNT(*) FROM {table_name}";
+            string statmentFindRecord = $"SELECT COUNT(*) FROM {table_name.ToUpper()}";
             using OracleCommand sql_command = new(statmentFindRecord, ora_connection);
             return Convert.ToInt32(sql_command.ExecuteScalar());
         }
 
         int ContaRegistrosDeTabelaSQL(SqlConnection sql_connection, string table_name)
         {
-            string statmentFindRecord = $"SELECT COUNT(*) FROM {table_name}";
+            string statmentFindRecord = $"SELECT COUNT(*) FROM {table_name.ToUpper()}";
             using SqlCommand sql_command = new(statmentFindRecord, sql_connection);
             return Convert.ToInt32(sql_command.ExecuteScalar());
         }
@@ -597,12 +603,12 @@ internal class Program
             foreach (Column col in cols)
             {
                 if (col.DataType == "varchar" || col.DataType == "nvarchar" || col.DataType == "text")
-                { statmentToExport.Append($" SUBSTRING(REPLACE(REPLACE({col.ColumnName}, CHAR(13),'\\n'), CHAR(10), ''),1,2000) AS {col.ColumnName},"); }
+                { statmentToExport.Append($" SUBSTRING(REPLACE(REPLACE({col.ColumnName}, CHAR(13),'\\n'), CHAR(10), ''),1,{varcharLimit}) AS {col.ColumnName},"); }
                 else
                 { statmentToExport.Append($" {col.ColumnName},"); }
             }
             statmentToExport.Length--;
-            statmentToExport.Append($" FROM {table_schema}.{table_name}");
+            statmentToExport.Append($" FROM {table_schema.ToLower()}.{table_name.ToUpper()}");
             string bcpArguments = string.Format(bcp_params, statmentToExport.ToString(), table_name, sql_host, sql_catalog, sql_userId, sql_password);
             if (File.Exists(Path.Combine(Environment.CurrentDirectory, $"BCP\\{table_name}.dat"))) { File.Delete(Path.Combine(Environment.CurrentDirectory, $"BCP\\{table_name}.dat")); }
             ShowMessage($"    Running BCP to create import BCP\\{table_name}.dat file...");
@@ -656,22 +662,25 @@ internal class Program
             ShowMessage("");
             string bcpCommand = "BCP";
             StringBuilder sql = new("SELECT ");
-            StringBuilder pkFieldNames = new();
 
+            StringBuilder pkFieldNames = new();
             foreach (Column col in cols.Where(c => c.IsPrimarykey)) { pkFieldNames.Append("CAST(" + col.ColumnName + " AS VARCHAR)+'_'+"); }
-            pkFieldNames.Length -= 5;
+            if (pkFieldNames.Length > 0) { pkFieldNames.Length -= 5; }
+            else { pkFieldNames.Append("CAST((ROW_NUMBER() OVER (ORDER BY (SELECT NULL))) AS VARCHAR)+'_'+"); }
+
+            string path = Path.Combine(Environment.CurrentDirectory, "BCP", "Files", table_name);
 
             foreach (Column col in cols)
             {
-                if ((col.DataType == "varchar" || col.DataType == "nvarchar" || col.DataType == "char" || col.DataType == "nchar" || col.DataType == "text") && col.DataSize <= 2000)
+                if ((col.DataType == "varchar" || col.DataType == "nvarchar" || col.DataType == "char" || col.DataType == "nchar" || col.DataType == "text") && (col.DataSize > 0 && col.DataSize <= varcharLimit))
                 { sql.Append($" REPLACE(REPLACE({col.ColumnName}, CHAR(13),'\\n'), CHAR(10), '') AS {col.ColumnName},"); }
-                else if (col.DataType == "image" || col.DataType == "varchar" || col.DataType == "nvarchar" || col.DataType == "char" || col.DataType == "nchar" || col.DataType == "text")
-                { sql.Append($" '{table_name}_'+{pkFieldNames.ToString()}+'{(CheckIfTypeColumnExists("image", cols) ? ".frm" : "") + (CheckIfTypeColumnExists("xml", cols) ? ".xml" : "") + (CheckIfTypeColumnExists("nclob", cols) ? ".txt" : "")}',"); }
+                else if (col.DataType == "image" || col.DataType == "varchar" || col.DataType == "nvarchar" || col.DataType == "char" || col.DataType == "nchar" || col.DataType == "xml" || col.DataType == "text")
+                { sql.Append($" '{Path.Combine(path, table_name)}_'+{pkFieldNames.ToString()}+'{(col.DataType == "image" ? ".frm" : "") + (col.DataType == "xml" ? ".xml" : "") + (CheckColumnOfType("nclob", col) ? ".txt" : "")}',"); }
                 else
                 { sql.Append($" {col.ColumnName},"); }
             }
             sql.Length--;
-            sql.Append($" FROM {table_schema}.{table_name}");
+            sql.Append($" FROM {table_schema.ToLower()}.{table_name.ToUpper()}");
 
             string bcpArguments = string.Format(bcp_params, sql.ToString(), table_name, sql_host, sql_catalog, sql_userId, sql_password);
             if (File.Exists(Path.Combine(Environment.CurrentDirectory, $"BCP\\{table_name}.dat")))
@@ -696,11 +705,12 @@ internal class Program
             {
                 subquery.Append($"{col.ColumnName},");
                 if (col.IsPrimarykey) { rownum = $"ROW_NUMBER() OVER (ORDER BY {col.ColumnName}) AS ROWNUN"; }
+                else { rownum = "ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS ROWNUN"; }
             }
             query.Append(subquery);
             query.Length--;
             subquery.Append(rownum);
-            subquery.Append($" FROM {table_schema}.{table_name}");
+            subquery.Append($" FROM {table_schema.ToLower()}.{table_name.ToUpper()}");
             query.Append($" FROM ({subquery.ToString()}) T WHERE ROWNUN > {startRow} AND ROWNUN <= {endRow}");
 
             //SqlCommand sql_server_table_command = new($"SELECT * FROM {table_schema}.{table_name} OFFSET {startIndex} ROWS FETCH NEXT {batchRecords} ROWS ONLY", sql_server_connection);
@@ -776,23 +786,32 @@ internal class Program
                 {
                     try
                     {
+                        if (after_all_data_load.Length > 0) { after_all_data_load.AppendLine(""); }
                         StringBuilder updateStatment = new($"UPDATE\t{table_name}\n\tSET ");
-                        foreach ((Column col, int index) in cols.Where(c => c.DataType == "text" || c.DataType == "varchar" || c.DataType == "nvarchar").WithIndex())
+                        foreach ((Column col, int index) in cols.Where(c => c.DataType == "text" || c.DataType == "varchar" || c.DataType == "nvarchar" || (c.DataSize > 0 && c.DataSize <= varcharLimit)).WithIndex())
                         { updateStatment.Append($"{(index > 0 ? "\n\t\t" : "\t")}{col.ColumnName} = REPLACE({col.ColumnName}, '\\n', CHR(13)||CHR(10)),"); }
                         updateStatment.Length--;
+                        if (currentErrorCount == 0) { after_all_data_load.AppendLine(updateStatment + ";"); }
                         using OracleCommand command = new(updateStatment.ToString(), oracle_connection);
                         command.ExecuteNonQuery();
                         updateOk = true;
-                        after_all_data_load.AppendLine(updateStatment + ";");
-                        after_all_data_load.AppendLine("");
+
                     }
-                    catch (Exception ex) {
+                    catch (Exception ex)
+                    {
                         ShowMessage($"    An error occurred: {ex.Message}");
                         if (ex.StackTrace != null)
                         {
                             string[] stackTrace = ex.StackTrace.Split(new string[] { System.Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
                             for (int i = 0; i < stackTrace.Length; i++) { ShowMessage($"           {(i == 0 ? "StackTrace: " : "            ")}{stackTrace[i]}"); }
                         }
+                        if (currentErrorCount >= maxErrosRepetition)
+                        {
+                            currentErrorCount = 0;
+                            after_all_data_load.AppendLine($"    Unable to perform an Update on table {table_name}. Message: {ex.Message}.");
+                            break;
+                        }
+                        currentErrorCount++;
                     }
                 }
             }
@@ -872,7 +891,7 @@ internal class Program
                         ora_server_constraint_command.ExecuteNonQuery();
                     }
                     catch (Exception ex)
-                    { 
+                    {
                         ShowMessage($"    Error creating Constraint {ConstraintName}...");
                         ShowMessage($"    An error occurred: {ex.Message}");
                         if (ex.StackTrace != null)
@@ -889,10 +908,10 @@ internal class Program
         }
 
         bool CheckIfTypeColumnExists(string dataType, List<Column> cols)
-            => cols.Where(c => c.DataType == dataType || (dataType == "nclob" && ((c.DataType == "varchar" || c.DataType == "nvarchar" || c.DataType == "char" || c.DataType == "nchar") && (c.DataSize <= 0 || c.DataSize > 2000)))).Any();
+            => cols.Where(c => c.DataType == dataType || (dataType == "nclob" && ((c.DataType == "varchar" || c.DataType == "nvarchar" || c.DataType == "char" || c.DataType == "nchar") && (c.DataSize <= 0 || c.DataSize > varcharLimit)))).Any();
 
         bool CheckColumnOfType(string dataType, Column col)
-            => col.DataType == dataType || (dataType == "nclob" && ((col.DataType == "varchar" || col.DataType == "nvarchar" || col.DataType == "char" || col.DataType == "nchar") && (col.DataSize <= 0 || col.DataSize > 2000)));
+            => col.DataType == dataType || (dataType == "nclob" && ((col.DataType == "varchar" || col.DataType == "nvarchar" || col.DataType == "char" || col.DataType == "nchar") && (col.DataSize <= 0 || col.DataSize > varcharLimit)));
 
         string ExtraImagesInFiles(string table_name, List<Column> cols, SqlDataReader reader)
         {
@@ -904,7 +923,8 @@ internal class Program
             fileName.Length--;
             if (!Directory.Exists(Path.Combine(Environment.CurrentDirectory, "BCP"))) { Directory.CreateDirectory(Path.Combine(Environment.CurrentDirectory, "BCP")); }
             if (!Directory.Exists(Path.Combine(Environment.CurrentDirectory, "BCP", "Files"))) { Directory.CreateDirectory(Path.Combine(Environment.CurrentDirectory, "BCP", "Files")); }
-            string filePath = Path.Combine(Environment.CurrentDirectory, "BCP", "Files", string.Concat(table_name, "_", fileName.ToString(), ".frm"));
+            if (!Directory.Exists(Path.Combine(Environment.CurrentDirectory, "BCP", "Files", table_name))) { Directory.CreateDirectory(Path.Combine(Environment.CurrentDirectory, "BCP", "Files", table_name)); }
+            string filePath = Path.Combine(Environment.CurrentDirectory, "BCP", "Files", table_name, string.Concat(table_name, "_", fileName.ToString(), ".frm"));
             using var writer = new BinaryWriter(File.OpenWrite(filePath));
             writer.Write(imageData);
             return filePath;
@@ -912,7 +932,7 @@ internal class Program
 
         string ExtractTextsInFiles(string table_name, List<Column> cols, SqlDataReader reader)
         {
-            string colName = (cols.Where(c => c.DataType == "xml" || ((c.DataType == "varchar" || c.DataType == "nvarchar" || c.DataType == "char" || c.DataType == "nchar") && (c.DataSize <= 0 || c.DataSize > 2000))).FirstOrDefault() ?? throw new Exception("Column Text/XML não encontrada")).ColumnName;
+            string colName = (cols.Where(c => c.DataType == "xml" || ((c.DataType == "varchar" || c.DataType == "nvarchar" || c.DataType == "char" || c.DataType == "nchar") && (c.DataSize <= 0 || c.DataSize > varcharLimit))).FirstOrDefault() ?? throw new Exception("Column Text/XML não encontrada")).ColumnName;
             string textData = (string)reader[colName];
             StringBuilder fileName = new();
             foreach (Column col in cols.Where(c => c.IsPrimarykey))
@@ -920,7 +940,8 @@ internal class Program
             fileName.Length--;
             if (!Directory.Exists(Path.Combine(Environment.CurrentDirectory, "BCP"))) { Directory.CreateDirectory(Path.Combine(Environment.CurrentDirectory, "BCP")); }
             if (!Directory.Exists(Path.Combine(Environment.CurrentDirectory, "BCP", "Files"))) { Directory.CreateDirectory(Path.Combine(Environment.CurrentDirectory, "BCP", "Files")); }
-            string filePath = Path.Combine(Environment.CurrentDirectory, "BCP", "Files", string.Concat(table_name, "_", fileName.ToString(), (CheckIfTypeColumnExists("xml", cols) ? ".xml" : "") + (CheckIfTypeColumnExists("nclob", cols) ? ".txt" : "")));
+            if (!Directory.Exists(Path.Combine(Environment.CurrentDirectory, "BCP", "Files", table_name))) { Directory.CreateDirectory(Path.Combine(Environment.CurrentDirectory, "BCP", "Files", table_name)); }
+            string filePath = Path.Combine(Environment.CurrentDirectory, "BCP", "Files", table_name, string.Concat(table_name, "_", fileName.ToString(), (CheckIfTypeColumnExists("xml", cols) ? ".xml" : "") + (CheckIfTypeColumnExists("nclob", cols) ? ".txt" : "")));
             using (StreamWriter writer = new(filePath))
             { writer.Write(textData); }
             return filePath;
