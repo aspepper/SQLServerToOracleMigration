@@ -861,7 +861,7 @@ internal class Program
 
         void LinkingAsReferences(SqlConnection sql_server_connection, OracleConnection oracle_connection)
         {
-            ShowMessage("    Enabling all Foreign Key Constraints...");
+            ShowMessage("Enabling all Foreign Key Constraints...");
             string query = "SELECT fk_tab.name as tabela_estrangeira,\r\npk_tab.name as tabela_primaria,\r\nSUBSTRING(column_names, 1, len(column_names)-1) as [fk_columns],\r\nfk.name as fk_constraint_name\r\nFROM sys.foreign_keys fk\r\nINNER JOIN sys.tables fk_tab\r\nON fk_tab.object_id = fk.parent_object_id\r\nINNER JOIN sys.tables pk_tab\r\nON pk_tab.object_id = fk.referenced_object_id\r\nCROSS APPLY (select col.[name] + ', '\r\nFROM sys.foreign_key_columns fk_c\r\nINNER JOIN sys.columns col\r\nON fk_c.parent_object_id = col.object_id\r\nAND fk_c.parent_column_id = col.column_id\r\nWHERE fk_c.parent_object_id = fk_tab.object_id\r\nAND fk_c.constraint_object_id = fk.object_id\r\nORDER BY col.column_id\r\nFOR XML PATH ('') ) D (column_names)\r\nORDER BY schema_name(fk_tab.schema_id) + '.' + fk_tab.name,\r\nschema_name(pk_tab.schema_id) + '.' + pk_tab.name;";
             SqlCommand sql_server_table_command = new(query, sql_server_connection);
             using SqlDataReader table_reader = sql_server_table_command.ExecuteReader();
@@ -869,7 +869,7 @@ internal class Program
             while (reading)
             {
                 string? ConstraintName = table_reader.IsDBNull(3) ? null : table_reader.GetValue(3).ToString();
-                query = $"SELECT COUNT(1) FROM USER_CONSTRAINTS WHERE CONSTRAINT_NAME = '{ConstraintName}';";
+                query = $"SELECT COUNT(1) FROM USER_CONSTRAINTS WHERE CONSTRAINT_NAME = '{ConstraintName}'";
                 OracleCommand query_check_exists = new(query, oracle_connection);
                 if (Convert.ToInt32(query_check_exists.ExecuteScalar()) == 0)
                 {
