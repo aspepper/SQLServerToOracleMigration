@@ -4,15 +4,18 @@ using SQLServerToOracleMigrationUtility;
 using System.Data;
 using System.Data.SqlClient;
 using System.Diagnostics;
+using System.Security.Cryptography;
 using System.Text;
 
 internal class Program
 {
     private static void Main(string[] args)
     {
+
         int currentErrorCount = 0;
         int maxErrosRepetition = 10;
         int varcharLimit = 2000;
+        int tableRowsAcceptable = 100000;
         DateTime startProcessing = DateTime.Now;
 
         string sql_host = string.Empty;
@@ -622,6 +625,11 @@ internal class Program
 
         void ExecuteBCPComExtracaoDeArquivos(string table_schema, string table_name, List<Column> cols, SqlConnection sql_server_connection, int total)
         {
+            if(total>tableRowsAcceptable) {
+                if (GetResponseForQuestion($"Table {table_schema}.{table_name} has a number of records that exceed acceptable runtime levels for extracting varchar, text, xml, or image columns greater than 2000 bytes in length. Extracting the data into files is necessary due to Oracle's limitations for these scenarios. Make sure there are records really needed in the migration and consider truncating these tables. Do you really want to proceed?", new ConsoleKey[] { ConsoleKey.Y, ConsoleKey.N }) == ConsoleKey.N) 
+                { throw new Exception($"Finished processing for revision of table {table_schema}.{table_name} with excessive data mass for the process of extracting data from files."); }
+            }
+
             DateTime startTime = DateTime.Now;
             ShowMessage($"    Extracting files {(CheckIfTypeColumnExists("image", cols) ? "Images" : "") + (CheckIfTypeColumnExists("xml", cols) ? "XMLs" : "") + (CheckIfTypeColumnExists("nclob", cols) ? " Text" : "")}...");
 
@@ -970,6 +978,21 @@ internal class Program
         {
             if (cr) { Console.WriteLine(mensagem); log_processamento.AppendLine(mensagem); }
             else { Console.Write(mensagem); log_processamento.Append(mensagem); }
+        }
+
+        ConsoleKey GetResponseForQuestion(string question, ConsoleKey[] keys)
+        {
+            ShowMessage(question);
+            StringBuilder options = new("Choose one of the following options (");
+            foreach(ConsoleKey k in keys) { options.Append(k); options.Append(", "); }
+            options.Length -= 2; options.Append("): ");
+            ShowMessage(options.ToString());
+            while (true)
+            {
+                var keyPressed = Console.ReadKey();
+                foreach(ConsoleKey k in keys)
+                { if(keyPressed.Key == k) { return k; } }
+            }
         }
 
     }
