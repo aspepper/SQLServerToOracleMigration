@@ -12,19 +12,19 @@ Follow the steps below:
 The migration of views is still being developed.
 
 Params:
-* sqlhost = SQL Server name or IP address, e.g., sqlhost=sql or sqlhost=myserver
-* sqlport = SQL Server port, ex: sqlport=1433 or sqlport 1433; If not informed, the default value is 1433
-* sqlcatalog = SQL Server database, e.g., sqlcatalog=mydatabase or sqlcatalog mydatabase
-* sqlusr = SQL Server user, e.g., sqlusr=user or sqlusr user
-* sqlpwd = SQL Server password, e.g., sqlpwd=password or sqlpwd password
-* orahost = Oracle server name or IP address, e.g., orahost=192.168.0.2 or orahost 192.168.0.2
-* oraport = Oracle port, e.g., oraport=1521 or oraport 1521; If not informed, the default value is 1521
-* orasid = Oracle Service ID, e.g., orasid=oraserviceId or orasid oraserviceId
-* orausr = Oracle user, e.g., orausr=scott or orausr scott
-* orapwd = Oracle password, e.g., orapwd=tigger or orapwd tigger
-* recriar = true if you want to recreate the tables / false if you don't want to, e.g., recriar=true or recriar true
-* append = true, whether you insert without truncating / false, whether you want to skip the table, e.g., append=true or append true
-* -m = maxRowsToInsert, e.g., -m 100 (maximum of 100 records) 
+* sqlhost = SQL Server name or IP address, e.g. **sqlhost**=_myserver_ or **sqlhost** _myserver_
+* sqlport = SQL Server port, e.g. **sqlport**=_1433_ or **sqlport** _1433_; If not informed, the default value is 1433
+* sqlcatalog = SQL Server database, e.g. **sqlcatalog**=_mydatabase_ or **sqlcatalog** _mydatabase_
+* sqlusr = SQL Server user, e.g. **sqlusr**=_user_ or **sqlusr** _user_
+* sqlpwd = SQL Server password, e.g. **sqlpwd**=_password_ or **sqlpwd** _password_
+* orahost = Oracle server name or IP address, e.g. **orahost**=_192.168.0.2_ or **orahost** _192.168.0.2_
+* oraport = Oracle port, e.g. **oraport**=_1521_ or **oraport** _1521_; If not informed, the default value is 1521
+* orasid = Oracle Service ID, e.g. **orasid**=_oraserviceId_ or **orasid** _oraserviceId_
+* orausr = Oracle user, e.g. **orausr**=_scott_ or **orausr** _scott_
+* orapwd = Oracle password, e.g. **orapwd**=_tigger_ or **orapwd** _tigger_
+* recriar = _true_ if you want to recreate the tables / _false_ if you don't want to, e.g. **recriar**=_true_ or **recriar** _true_
+* append = _true_, whether you insert without truncating / _false_, whether you want to skip the table, e.g. **append**=_true_ or **append** _true_
+* -m = maxRowsToInsert, e.g. **-m** _100_ (maximum of 100 records) 
 
 -------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -42,16 +42,16 @@ Siga os passos abaixo:
 Ainda está sendo desenvolvido a migração das views.
 
 Params:
-* sqlhost = nome ou ip do servidor do SQL Server, ex: sqlhost=192.168.0.1 ou sqlhost meuservidor
-* sqlport = porta SQL Server, ex: sqlport=1433 ou sqlport 1433; Se não informado, o valor padrão será 1433
-* sqlcatalog = banco de dados do SQL Server, ex: sqlcatalog=meubanco ou sqlcatalog meubanco
-* sqlusr = usuário do SQL Server, ex: sqlusr=usuario ou sqlusr usuario
-* sqlpwd = senha do SQL Server, sqlpwd=senha ou sqlpwd senha
-* orahost = nome ou ip do servidor Oracle, ex: orahost=192.168.0.2 ou orahost 192.168.0.2
-* oraport = porta Oracle, ex: oraport=1521 ou oraport 1521; Se não informado, o valor padrão será 1521
-* orasid = Id do Serviço Oracle, ex: orasid=oraserviceId ou orasid oraserviceId
-* orausr = usuário Oracle, ex: orausr=scott ou orausr scott
-* orapwd = Senha Oracle, ex: orapwd=tigger ou orapwd tigger
-* recriar = true se deseja recirar as tabelas / falso caso não deseje, ex: recriar=true ou recriar true
-* append = true se inserir sem truncar / falso caso queira pular a tabela, ex: append=true ou append true
-* -m = maxRowsToInsert ex: -m 100 (no máximo 100 regitros)
+* sqlhost = nome ou ip do servidor do SQL Server, ex: **sqlhost**=_meuservidor_ ou **sqlhost** _meuservidor_
+* sqlport = porta SQL Server, ex: **sqlport**=_1433_ ou **sqlport** 1433; Se não informado, o valor padrão será 1433
+* sqlcatalog = banco de dados do SQL Server, ex: **sqlcatalog**=_meubanco_ ou **sqlcatalog** _meubanco_
+* sqlusr = usuário do SQL Server, ex: **sqlusr**=_usuario_ ou **sqlusr** _usuario_
+* sqlpwd = senha do SQL Server, ex: **sqlpwd**=_senha_ ou **sqlpwd** _senha_
+* orahost = nome ou ip do servidor Oracle, ex: **orahost**=_192.168.0.2_ ou **orahost** _192.168.0.2_
+* oraport = porta Oracle, ex: **oraport**=_1521_ ou **oraport** _1521_; Se não informado, o valor padrão será 1521
+* orasid = Id do Serviço Oracle, ex: **orasid**=_oraserviceId_ ou **orasid** _oraserviceId_
+* orausr = usuário Oracle, ex: **orausr**=_scott_ ou **orausr** _scott_
+* orapwd = Senha Oracle, ex: **orapwd**=_tigger_ ou **orapwd** _tigger_
+* recriar = _true_ se deseja recirar as tabelas / _falso_ caso não deseje, ex: **recriar**=_true_ ou **recriar** _true_
+* append = _true_ se inserir sem truncar / _falso_ caso queira pular a tabela, ex: **append**=_true_ ou **append** _true_
+* -m = maxRowsToInsert ex: **-m** _100_ (no máximo 100 regitros)
