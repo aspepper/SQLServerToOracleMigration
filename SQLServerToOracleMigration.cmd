@@ -1,0 +1,2 @@
+@echo off
+SQLServerToOracleMigration.exe sqlhost=hostNameOrIP oraport=sqlPort sqlcatalog=database sqlusr=userName sqlpwd=password orahost=hostNameOrIP oraport=oraPort orasid=SID orausr=userName orapwd=password

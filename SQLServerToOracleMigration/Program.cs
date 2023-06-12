@@ -4,7 +4,6 @@ using SQLServerToOracleMigrationUtility;
 using System.Data;
 using System.Data.SqlClient;
 using System.Diagnostics;
-using System.Security.Cryptography;
 using System.Text;
 
 internal class Program
@@ -19,11 +18,12 @@ internal class Program
         DateTime startProcessing = DateTime.Now;
 
         string sql_host = string.Empty;
+        string sql_port = "1433";
         string sql_catalog = string.Empty;
         string sql_userId = string.Empty;
         string sql_password = string.Empty;
         string ora_host = string.Empty;
-        string ora_port = string.Empty;
+        string ora_port = "1521";
         string ora_sid = string.Empty;
         string ora_userId = string.Empty;
         string ora_password = string.Empty;
@@ -31,7 +31,7 @@ internal class Program
         string sql_server_connection_string = string.Empty;
         string oracle_connection_string = string.Empty;
         string quote = "```";
-        string bcp_params = "\"{0}\" QUERYOUT BCP\\{1}.dat -o Log\\{1}.log -S{2} -d {3} -U{4} -P{5} -C65001 -t \"" + quote + "," + quote + "\" -r \"" + quote + "\\n" + quote + "\" -w";
+        string bcp_params = "\"{0}\" QUERYOUT BCP\\{1}.dat -o Log\\{1}.log -S{2},{3} -d {4} -U{5} -P{6} -C65001 -t \"" + quote + "," + quote + "\" -r \"" + quote + "\\n" + quote + "\" -w";
         Encoding utf8pure = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
         bool tem_erro = false;
         StringBuilder bcp_scripts = new();
@@ -55,11 +55,12 @@ internal class Program
         en-US
         Params:
             sqlhost = SQL Server name or IP address, e.g., sqlhost=sql or sqlhost=myserver
+            sqlport = SQL Server port, ex: sqlport=1433 or sqlport 1433; If not informed, the default value is 1433
             sqlcatalog = SQL Server database, e.g., sqlcatalog=mydatabase or sqlcatalog mydatabase
             sqlusr = SQL Server user, e.g., sqlusr=user or sqlusr user
             sqlpwd = SQL Server password, e.g., sqlpwd=password or sqlpwd password
             orahost = Oracle server name or IP address, e.g., orahost=192.168.0.2 or orahost 192.168.0.2
-            oraport = Oracle port, e.g., oraport=1521 or oraport 1521
+            oraport = Oracle port, e.g., oraport=1521 or oraport 1521; If not informed, the default value is 1521
             orasid = Oracle Service ID, e.g., orasid=oraserviceId or orasid oraserviceId
             orausr = Oracle user, e.g., orausr=scott or orausr scott
             orapwd = Oracle password, e.g., orapwd=tigger or orapwd tigger
@@ -70,11 +71,12 @@ internal class Program
         pt-BR
         Params:
             sqlhost = nome ou ip do servidor do SQL Server, ex: sqlhost=192.168.0.1 ou sqlhost meuservidor
+            sqlport = porta SQL Server, ex: sqlport=1433 ou sqlport 1433; Se não informado, o valor padrão será 1433
             sqlcatalog = banco de dados do SQL Server, ex: sqlcatalog=meubanco ou sqlcatalog meubanco
             sqlusr = usuário do SQL Server, ex: sqlusr=usuario ou sqlusr usuario
             sqlpwd = senha do SQL Server, sqlpwd=senha ou sqlpwd senha
             orahost = nome ou ip do servidor Oracle, ex: orahost=192.168.0.2 ou orahost 192.168.0.2
-            oraport = porta Oracle, ex: oraport=1521 ou oraport 1521
+            oraport = porta Oracle, ex: oraport=1521 ou oraport 1521; Se não informado, o valor padrão será 1521
             orasid = Id do Serviço Oracle, ex: orasid=oraserviceId ou orasid oraserviceId
             orausr = usuário Oracle, ex: orausr=scott ou orausr scott
             orapwd = Senha Oracle, ex: orapwd=tigger ou orapwd tigger
@@ -107,11 +109,12 @@ internal class Program
                 if (argpure == "and") { andTable = arg; allParams.Append($" \"and...\"=\"{andTable}\","); }
                 string argtype2 = arg.ToString()[..6].ToLower();
                 if (argtype2 == "sqlhos") { var param = arg.Remove(0, 7); if (param.Contains('=')) { param = param.Remove(0, 1).Trim(); } else { i++; param = args[i]; } sql_host = param; paramMandatory++; }
+                if (argtype2 == "sqlpor") { var param = arg.Remove(0, 7); if (param.Contains('=')) { param = param.Remove(0, 1).Trim(); } else { i++; param = args[i]; } sql_port = param; }
                 if (argtype2 == "sqlcat") { var param = arg.Remove(0, 10); if (param.Contains('=')) { param = param.Remove(0, 1).Trim(); } else { i++; param = args[i]; } sql_catalog = param; paramMandatory++; }
                 if (argtype2 == "sqlusr") { var param = arg.Remove(0, 6); if (param.Contains('=')) { param = param.Remove(0, 1).Trim(); } else { i++; param = args[i]; } sql_userId = param; paramMandatory++; }
                 if (argtype2 == "sqlpwd") { var param = arg.Remove(0, 6); if (param.Contains('=')) { param = param.Remove(0, 1).Trim(); } else { i++; param = args[i]; } sql_password = param; paramMandatory++; }
                 if (argtype2 == "orahos") { var param = arg.Remove(0, 7); if (param.Contains('=')) { param = param.Remove(0, 1).Trim(); } else { i++; param = args[i]; } ora_host = param; paramMandatory++; }
-                if (argtype2 == "orapor") { var param = arg.Remove(0, 7); if (param.Contains('=')) { param = param.Remove(0, 1).Trim(); } else { i++; param = args[i]; } ora_port = param; paramMandatory++; }
+                if (argtype2 == "orapor") { var param = arg.Remove(0, 7); if (param.Contains('=')) { param = param.Remove(0, 1).Trim(); } else { i++; param = args[i]; } ora_port = param; }
                 if (argtype2 == "orasid") { var param = arg.Remove(0, 6); if (param.Contains('=')) { param = param.Remove(0, 1).Trim(); } else { i++; param = args[i]; } ora_sid = param; paramMandatory++; }
                 if (argtype2 == "orausr") { var param = arg.Remove(0, 6); if (param.Contains('=')) { param = param.Remove(0, 1).Trim(); } else { i++; param = args[i]; } ora_userId = param; paramMandatory++; }
                 if (argtype2 == "orapwd") { var param = arg.Remove(0, 6); if (param.Contains('=')) { param = param.Remove(0, 1).Trim(); } else { i++; param = args[i]; } ora_password = param; paramMandatory++; }
@@ -119,7 +122,7 @@ internal class Program
                 if (argtype2 == "append") { var param = arg.Remove(0, 6); if (param.Contains('=')) { param = param.Remove(0, 1).Trim(); } else { i++; param = args[i]; } insertMoreRows = param == "true"; allParams.Append($" append={param},"); }
             }
         }
-        if (paramMandatory < 9)
+        if (paramMandatory < 8)
         {
             Console.WriteLine("Please provide the 9 mandatory parameters:\n\tsqlhost = SQL Server name or IP address, e.g., sqlhost=192.168.0.1 or sqlhost=myserver\n\tsqlcatalog = SQL Server database, e.g., sqlcatalog=mydatabase or sqlcatalog mydatabase\n\tsqlusr = SQL Server user, e.g., sqlusr=user or sqlusr user\n\tsqlpwd = SQL Server password, e.g., sqlpwd=password or sqlpwd password\n\torahost = Oracle server name or IP address, e.g., orahost=192.168.0.2 or orahost 192.168.0.2\n\toraport = Oracle port, e.g., oraport=1521 or oraport 1521\n\torasid = Oracle Service ID, e.g., orasid=oraserviceId or orasid oraserviceId\n\torausr = Oracle user, e.g., orausr=scott or orausr scott\n\torapwd = Oracle password, e.g., orapwd=tigger or orapwd tigger\n\nAnd the optional ones are:\n\trecriar = true if you want to recreate the tables / false if you don't want to, e.g., recriar=true or recriar true (Default is false)\n\t-m = maxRowsToInsert, e.g., -m 100 (maximum of 100 records).");
             Environment.Exit(0);
@@ -128,7 +131,7 @@ internal class Program
         Console.WriteLine($"Running migration proccess using follow parameters {allParams}");
         Console.WriteLine("");
 
-        sql_server_connection_string = $"Data Source={sql_host};Initial Catalog={sql_catalog};User ID={sql_userId};Password={sql_password};MultipleActiveResultSets=True";
+        sql_server_connection_string = $"Data Source={sql_host},{sql_port};Initial Catalog={sql_catalog};User ID={sql_userId};Password={sql_password};MultipleActiveResultSets=True";
         oracle_connection_string = $"Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=tcp)(HOST={ora_host})(PORT={ora_port}))(CONNECT_DATA=(SERVICE_NAME={ora_sid})));User Id={ora_userId};Password={ora_password};Persist Security Info=True;enlist=false;pooling=false;";
 
         using SqlConnection sql_server_connection = new(sql_server_connection_string);
@@ -612,7 +615,7 @@ internal class Program
             }
             statmentToExport.Length--;
             statmentToExport.Append($" FROM {table_schema.ToLower()}.{table_name.ToUpper()}");
-            string bcpArguments = string.Format(bcp_params, statmentToExport.ToString(), table_name, sql_host, sql_catalog, sql_userId, sql_password);
+            string bcpArguments = string.Format(bcp_params, statmentToExport.ToString(), table_name, sql_host, sql_port, sql_catalog, sql_userId, sql_password);
             if (File.Exists(Path.Combine(Environment.CurrentDirectory, $"BCP\\{table_name}.dat"))) { File.Delete(Path.Combine(Environment.CurrentDirectory, $"BCP\\{table_name}.dat")); }
             ShowMessage($"    Running BCP to create import BCP\\{table_name}.dat file...");
             bcp_scripts.AppendLine(string.Concat(bcpCommand, " ", bcpArguments));
@@ -625,8 +628,9 @@ internal class Program
 
         void ExecuteBCPComExtracaoDeArquivos(string table_schema, string table_name, List<Column> cols, SqlConnection sql_server_connection, int total)
         {
-            if(total>tableRowsAcceptable) {
-                if (GetResponseForQuestion($"Table {table_schema}.{table_name} has a number of records that exceed acceptable runtime levels for extracting varchar, text, xml, or image columns greater than 2000 bytes in length. Extracting the data into files is necessary due to Oracle's limitations for these scenarios. Make sure there are records really needed in the migration and consider truncating these tables. Do you really want to proceed?", new ConsoleKey[] { ConsoleKey.Y, ConsoleKey.N }) == ConsoleKey.N) 
+            if (total > tableRowsAcceptable)
+            {
+                if (GetResponseForQuestion($"Table {table_schema}.{table_name} has a number of records that exceed acceptable runtime levels for extracting varchar, text, xml, or image columns greater than 2000 bytes in length. Extracting the data into files is necessary due to Oracle's limitations for these scenarios. Make sure there are records really needed in the migration and consider truncating these tables. Do you really want to proceed?", new ConsoleKey[] { ConsoleKey.Y, ConsoleKey.N }) == ConsoleKey.N)
                 { throw new Exception($"Finished processing for revision of table {table_schema}.{table_name} with excessive data mass for the process of extracting data from files."); }
             }
 
@@ -690,7 +694,7 @@ internal class Program
             sql.Length--;
             sql.Append($" FROM {table_schema.ToLower()}.{table_name.ToUpper()}");
 
-            string bcpArguments = string.Format(bcp_params, sql.ToString(), table_name, sql_host, sql_catalog, sql_userId, sql_password);
+            string bcpArguments = string.Format(bcp_params, sql.ToString(), table_name, sql_host, sql_port, sql_catalog, sql_userId, sql_password);
             if (File.Exists(Path.Combine(Environment.CurrentDirectory, $"BCP\\{table_name}.dat")))
             { File.Delete(Path.Combine(Environment.CurrentDirectory, $"BCP\\{table_name}.dat")); }
             ShowMessage($"    Running BCP to create import BCP\\{table_name}.dat file...");
@@ -984,14 +988,14 @@ internal class Program
         {
             ShowMessage(question);
             StringBuilder options = new("Choose one of the following options (");
-            foreach(ConsoleKey k in keys) { options.Append(k); options.Append(", "); }
+            foreach (ConsoleKey k in keys) { options.Append(k); options.Append(", "); }
             options.Length -= 2; options.Append("): ");
             ShowMessage(options.ToString());
             while (true)
             {
                 var keyPressed = Console.ReadKey();
-                foreach(ConsoleKey k in keys)
-                { if(keyPressed.Key == k) { return k; } }
+                foreach (ConsoleKey k in keys)
+                { if (keyPressed.Key == k) { return k; } }
             }
         }
 
